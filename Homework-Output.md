@@ -1,3 +1,7 @@
+## Project Architecture
+
+![arch](images/arch.png)
+
 ## Project Structure
 
 ```
