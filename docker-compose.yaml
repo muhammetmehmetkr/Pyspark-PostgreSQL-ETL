@@ -1,0 +1,81 @@
+services:
+  spark:
+    container_name: spark
+    image: veribilimiokulu/pyspark:3.5.3_python-3.12_java17
+    ports:
+      - "8888:8888"
+      - "4041:4040"
+    networks:
+      - vbo
+    volumes:
+      - ./spark/examples:/opt/examples
+    command:
+        - /bin/bash
+        - -c
+        - |
+          apt update && \
+          apt install openssh-server sudo sshpass -y && \
+          useradd -rm -d /home/ssh_train -s /bin/bash -g root -G sudo -u 1000 ssh_train && \
+          echo 'ssh_train:Ankara06' | chpasswd && \
+          service ssh start && \
+          chown -R ssh_train:users /opt/examples
+          tail -f /dev/null
+  # S3 compatible object storage: RustFS
+  rustfs:
+    restart: always
+    image: rustfs/rustfs:latest
+    container_name: rustfs
+    ports:
+        - "9000:9000"
+        - "9001:9001"
+    networks:
+      - vbo
+    environment:
+        - RUSTFS_ACCESS_KEY=dataops
+        - RUSTFS_SECRET_KEY=Ankara06
+        - RUSTFS_VOLUMES=/data
+        - RUSTFS_ADDRESS=:9000
+    volumes:
+        - rustfs_data:/data
+  kafka:
+    image: apache/kafka:4.1.2
+    container_name: kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://localhost:9092,CONTROLLER://localhost:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+    networks:
+      - vbo
+    volumes:
+      - kafka_datagen:/var/lib/kafka/data
+  postgresql:
+    restart: always
+    image: postgres:17
+    container_name: postgresql
+    ports:
+      - "5432:5432"
+    networks:
+      - vbo
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=Ankara06
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+volumes:
+  postgres_data:
+  kafka_datagen:
+  rustfs_data:
+
+networks:
+  vbo:
